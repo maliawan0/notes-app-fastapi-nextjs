@@ -26,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <Script src="/error-capture.js" strategy="beforeInteractive" />
       </head>
@@ -41,3 +41,4 @@ export default function RootLayout({
     </html>
   );
 }
+
