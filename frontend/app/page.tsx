@@ -1,15 +1,25 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
-  return (
-    <div className="flex items-center justify-center h-screen">
-      <Image
-        alt="Freestyle Logo"
-        src="/placeholder-freestyle-logo.svg"
-        width={347}
-        height={280}
-        className="opacity-10 w-48"
-      />
-    </div>
-  );
+import React from 'react';
+import { useAuth } from '../context/AuthContext';
+import Login from '../components/Login';
+import MainApp from '../components/MainApp';
+import { Loader2 } from 'lucide-react';
+
+export default function Page() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
+  return <MainApp />;
 }
