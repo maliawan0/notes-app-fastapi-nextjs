@@ -97,21 +97,21 @@ export default function Sidebar({
 
       {/* Sidebar Container */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-80 bg-slate-50 border-r border-slate-200 flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 md:static",
+        "fixed inset-y-0 left-0 z-50 w-80 bg-slate-50 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 md:static",
         isMobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Header */}
-        <div className="p-4 border-b border-slate-200">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">
                 Q
               </div>
-              <span className="font-bold text-slate-800">QuickNote</span>
+              <span className="font-bold text-slate-800 dark:text-slate-100">QuickNote</span>
             </div>
             <button 
               onClick={() => setIsMobileOpen(false)}
-              className="md:hidden p-1 hover:bg-slate-200 rounded"
+              className="md:hidden p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-slate-600 dark:text-slate-400"
             >
               <X size={20} />
             </button>
@@ -127,14 +127,14 @@ export default function Sidebar({
         </div>
 
         {/* Navigation */}
-        <div className="flex p-2 space-x-1 border-b border-slate-200">
+        <div className="flex p-2 space-x-1 border-b border-slate-200 dark:border-slate-800">
           <button
             onClick={() => { setCurrentView('notes'); setSelectedTag(null); }}
             className={cn(
               "flex-1 py-2 px-3 rounded-md text-sm font-medium flex items-center justify-center space-x-2 transition-colors",
               currentView === 'notes' 
-                ? "bg-white text-blue-600 shadow-sm border border-slate-200" 
-                : "text-slate-600 hover:bg-slate-100"
+                ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200 dark:border-slate-700" 
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             )}
           >
             <FileText size={16} />
@@ -145,8 +145,8 @@ export default function Sidebar({
             className={cn(
               "flex-1 py-2 px-3 rounded-md text-sm font-medium flex items-center justify-center space-x-2 transition-colors",
               currentView === 'archive' 
-                ? "bg-white text-blue-600 shadow-sm border border-slate-200" 
-                : "text-slate-600 hover:bg-slate-100"
+                ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200 dark:border-slate-700" 
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             )}
           >
             <Archive size={16} />
@@ -163,7 +163,7 @@ export default function Sidebar({
               placeholder="Search notes..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 dark:text-slate-200 placeholder-slate-400"
             />
           </div>
 
@@ -175,8 +175,8 @@ export default function Sidebar({
                 className={cn(
                   "flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors border",
                   selectedTag === null
-                    ? "bg-slate-800 text-white border-slate-800"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                    ? "bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 border-slate-800 dark:border-slate-200"
+                    : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                 )}
               >
                 All
@@ -188,8 +188,8 @@ export default function Sidebar({
                   className={cn(
                     "flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors border flex items-center space-x-1",
                     selectedTag === tag.name
-                      ? "bg-blue-100 text-blue-700 border-blue-200"
-                      : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                      ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                      : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                   )}
                 >
                   <span>#</span>
@@ -209,19 +209,22 @@ export default function Sidebar({
               {searchQuery && <p className="text-xs mt-1">Try a different search term</p>}
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredNotes.map(note => (
                 <button
                   key={note.id}
                   onClick={() => handleNoteClick(note.id)}
                   className={cn(
-                    "w-full text-left p-4 hover:bg-slate-50 transition-colors group",
-                    activeNoteId === note.id ? "bg-white border-l-4 border-blue-500 shadow-sm" : "border-l-4 border-transparent"
+                    "w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group",
+                    activeNoteId === note.id 
+                      ? "bg-white dark:bg-slate-800 border-l-4 border-blue-500 shadow-sm" 
+                      : "border-l-4 border-transparent"
                   )}
                 >
                   <h3 className={cn(
                     "font-medium text-sm mb-1 truncate",
-                    !note.title && "text-slate-400 italic"
+                    !note.title && "text-slate-400 italic",
+                    activeNoteId === note.id ? "text-slate-800 dark:text-slate-100" : "text-slate-700 dark:text-slate-300"
                   )}>
                     {note.title || 'Untitled Note'}
                   </h3>
@@ -232,7 +235,7 @@ export default function Sidebar({
                     {note.tags.length > 0 && (
                       <div className="flex space-x-1">
                         {note.tags.slice(0, 2).map(tag => (
-                          <span key={tag} className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
+                          <span key={tag} className="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 px-1.5 py-0.5 rounded">
                             #{tag}
                           </span>
                         ))}
@@ -249,27 +252,27 @@ export default function Sidebar({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50">
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center text-slate-600 font-medium">
+              <div className="w-8 h-8 bg-slate-200 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-300 font-medium">
                 {user?.name?.[0] || 'U'}
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-medium text-slate-700 truncate max-w-[120px]">{user?.name || 'Guest'}</span>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate max-w-[120px]">{user?.name || 'Guest'}</span>
                 <span className="text-xs text-slate-400 truncate max-w-[120px]">Free Plan</span>
               </div>
             </div>
             <div className="flex space-x-1">
               <button 
                 onClick={() => setCurrentView('settings')}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-colors"
+                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"
               >
                 <Settings size={18} />
               </button>
               <button 
                 onClick={logout}
-                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
               >
                 <LogOut size={18} />
               </button>
@@ -280,3 +283,4 @@ export default function Sidebar({
     </>
   );
 }
+
