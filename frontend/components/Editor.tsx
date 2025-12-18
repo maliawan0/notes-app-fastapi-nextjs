@@ -13,7 +13,9 @@ import {
   List,
   CheckSquare,
   Heading1,
-  Heading2
+  Heading2,
+  Loader2,
+  FileText
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
@@ -252,4 +254,5 @@ function FormatButton({ icon, onClick, label }: { icon: React.ReactNode, onClick
   );
 }
 
-import { Loader2, FileText } from 'lucide-react';
+
+
