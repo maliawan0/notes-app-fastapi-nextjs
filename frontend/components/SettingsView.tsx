@@ -6,6 +6,7 @@ import { useNotes } from '../context/NotesContext';
 import { User, Download, Moon, Sun, Shield, Database } from 'lucide-react';
 
 import { useTheme } from "next-themes";
+import { cn } from '../lib/utils';
 
 export default function SettingsView() {
   const { user } = useAuth();
@@ -139,4 +140,5 @@ export default function SettingsView() {
     </div>
   );
 }
+
 
