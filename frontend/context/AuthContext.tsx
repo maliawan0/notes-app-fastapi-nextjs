@@ -2,10 +2,12 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
+import { authApi, AuthResponse } from '../lib/api';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, name: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -18,41 +20,78 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check for existing session
-    const storedUser = localStorage.getItem('quicknote_user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        console.error("Failed to parse user from local storage", e);
-        localStorage.removeItem('quicknote_user');
+    const checkSession = async () => {
+      const token = localStorage.getItem('quicknote_token');
+      const storedUser = localStorage.getItem('quicknote_user');
+      
+      if (token && storedUser) {
+        try {
+          // Verify token is still valid by fetching user profile
+          const userData = await authApi.getMe();
+          setUser(userData);
+          // Update stored user data
+          localStorage.setItem('quicknote_user', JSON.stringify(userData));
+        } catch (error) {
+          // Token is invalid, clear storage
+          console.error("Session expired or invalid", error);
+          localStorage.removeItem('quicknote_token');
+          localStorage.removeItem('quicknote_user');
+        }
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    checkSession();
   }, []);
 
-  const login = async (email: string, name: string) => {
+  const signup = async (name: string, email: string, password: string) => {
     setIsLoading(true);
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const newUser: User = {
-      id: crypto.randomUUID(),
-      email,
-      name,
-    };
-    
-    setUser(newUser);
-    localStorage.setItem('quicknote_user', JSON.stringify(newUser));
-    setIsLoading(false);
+    try {
+      const response: AuthResponse = await authApi.signup({ name, email, password });
+      
+      // Store token and user data
+      localStorage.setItem('quicknote_token', response.token);
+      localStorage.setItem('quicknote_user', JSON.stringify(response.user));
+      
+      setUser(response.user);
+    } catch (error: any) {
+      throw new Error(error.message || 'Signup failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('quicknote_user');
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const response: AuthResponse = await authApi.login({ email, password });
+      
+      // Store token and user data
+      localStorage.setItem('quicknote_token', response.token);
+      localStorage.setItem('quicknote_user', JSON.stringify(response.user));
+      
+      setUser(response.user);
+    } catch (error: any) {
+      throw new Error(error.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await authApi.logout();
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      setUser(null);
+      localStorage.removeItem('quicknote_token');
+      localStorage.removeItem('quicknote_user');
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

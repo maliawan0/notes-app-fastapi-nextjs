@@ -1,15 +1,24 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Editor from './Editor';
 import ArchiveView from './ArchiveView';
 import SettingsView from './SettingsView';
 import { Menu } from 'lucide-react';
+import { useNotes } from '../context/NotesContext';
 
 export default function MainApp() {
   const [currentView, setCurrentView] = useState<'notes' | 'archive' | 'settings'>('notes');
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { refreshNotes } = useNotes();
+
+  // Refresh notes when view changes
+  useEffect(() => {
+    if (currentView === 'notes' || currentView === 'archive') {
+      refreshNotes(currentView === 'archive');
+    }
+  }, [currentView, refreshNotes]);
 
   return (
     <div className="flex h-screen bg-white dark:bg-slate-900 overflow-hidden">

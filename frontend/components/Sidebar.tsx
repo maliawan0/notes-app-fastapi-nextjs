@@ -40,8 +40,14 @@ export default function Sidebar({
     searchQuery, 
     setSearchQuery,
     selectedTag,
-    setSelectedTag
+    setSelectedTag,
+    refreshNotes
   } = useNotes();
+
+  // Refresh notes when search or tag filter changes
+  React.useEffect(() => {
+    refreshNotes(currentView === 'archive', searchQuery, selectedTag);
+  }, [searchQuery, selectedTag, currentView, refreshNotes]);
 
   // Filter notes based on search and tag
   const filteredNotes = notes.filter(note => {
@@ -70,11 +76,16 @@ export default function Sidebar({
     return true;
   }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
-  const handleCreateNote = () => {
-    createNote();
-    setCurrentView('notes');
-    if (window.innerWidth < 768) {
-      setIsMobileOpen(false);
+  const handleCreateNote = async () => {
+    try {
+      await createNote();
+      setCurrentView('notes');
+      if (window.innerWidth < 768) {
+        setIsMobileOpen(false);
+      }
+      refreshNotes(false);
+    } catch (error) {
+      console.error("Failed to create note:", error);
     }
   };
 
@@ -129,7 +140,11 @@ export default function Sidebar({
         {/* Navigation */}
         <div className="flex p-2 space-x-1 border-b border-slate-200 dark:border-slate-800">
           <button
-            onClick={() => { setCurrentView('notes'); setSelectedTag(null); }}
+            onClick={() => { 
+              setCurrentView('notes'); 
+              setSelectedTag(null);
+              setSearchQuery('');
+            }}
             className={cn(
               "flex-1 py-2 px-3 rounded-md text-sm font-medium flex items-center justify-center space-x-2 transition-colors",
               currentView === 'notes' 
@@ -141,7 +156,11 @@ export default function Sidebar({
             <span>Notes</span>
           </button>
           <button
-            onClick={() => { setCurrentView('archive'); setSelectedTag(null); }}
+            onClick={() => { 
+              setCurrentView('archive'); 
+              setSelectedTag(null);
+              setSearchQuery('');
+            }}
             className={cn(
               "flex-1 py-2 px-3 rounded-md text-sm font-medium flex items-center justify-center space-x-2 transition-colors",
               currentView === 'archive' 

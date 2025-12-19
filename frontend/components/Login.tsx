@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { Loader2, CheckCircle } from 'lucide-react';
 
 export default function Login() {
-  const { login, isLoading } = useAuth();
+  const { login, signup, isLoading } = useAuth();
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,10 +27,13 @@ export default function Login() {
     }
 
     try {
-      // For MVP, we just simulate login with any credentials
-      await login(email, name || email.split('@')[0]);
-    } catch (err) {
-      setError('Something went wrong. Please try again.');
+      if (isRegistering) {
+        await signup(name, email, password);
+      } else {
+        await login(email, password);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong. Please try again.');
     }
   };
 

@@ -28,7 +28,8 @@ export default function Editor() {
     archiveNote, 
     deleteNote, 
     isSaving,
-    tags: allTags
+    tags: allTags,
+    refreshNotes
   } = useNotes();
   
   const [content, setContent] = useState('');
@@ -83,19 +84,37 @@ export default function Editor() {
     const text = textareaRef.current.value;
     const selectedText = text.substring(start, end);
     
-    const newText = text.substring(0, start) + prefix + selectedText + suffix + text.substring(end);
+    // If text is selected, wrap it with prefix and suffix
+    // If no text is selected, insert prefix and suffix with cursor between them
+    let newText: string;
+    let newCursorStart: number;
+    let newCursorEnd: number;
     
-    // Update content and cursor
+    if (selectedText) {
+      // Text is selected - wrap it
+      newText = text.substring(0, start) + prefix + selectedText + suffix + text.substring(end);
+      // Position cursor after the wrapped text
+      newCursorStart = start + prefix.length + selectedText.length + suffix.length;
+      newCursorEnd = newCursorStart;
+    } else {
+      // No text selected - insert markers with cursor between them
+      newText = text.substring(0, start) + prefix + suffix + text.substring(end);
+      // Position cursor between prefix and suffix
+      newCursorStart = start + prefix.length;
+      newCursorEnd = newCursorStart;
+    }
+    
+    // Update content
     setContent(newText);
     if (activeNoteId) {
       updateNote(activeNoteId, { content: newText });
     }
     
-    // Restore focus and cursor
+    // Restore focus and cursor position
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
-        textareaRef.current.setSelectionRange(start + prefix.length, end + prefix.length);
+        textareaRef.current.setSelectionRange(newCursorStart, newCursorEnd);
       }
     }, 0);
   };
@@ -165,7 +184,14 @@ export default function Editor() {
 
         <div className="flex items-center space-x-1">
           <button 
-            onClick={() => archiveNote(activeNote.id)}
+            onClick={async () => {
+              try {
+                await archiveNote(activeNote.id);
+                await refreshNotes(false);
+              } catch (error) {
+                console.error("Failed to archive note:", error);
+              }
+            }}
             className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
             title="Archive Note"
           >
@@ -185,7 +211,15 @@ export default function Editor() {
                 <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
                 <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-100 dark:border-slate-700 z-20 py-1">
                   <button 
-                    onClick={() => { deleteNote(activeNote.id); setShowMenu(false); }}
+                    onClick={async () => {
+                      try {
+                        await deleteNote(activeNote.id);
+                        await refreshNotes(false);
+                        setShowMenu(false);
+                      } catch (error) {
+                        console.error("Failed to delete note:", error);
+                      }
+                    }}
                     className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
                   >
                     <Trash2 size={14} className="mr-2" />
@@ -200,14 +234,128 @@ export default function Editor() {
 
       {/* Formatting Bar */}
       <div className="flex items-center px-6 py-2 border-b border-slate-50 dark:border-slate-800 space-x-1 overflow-x-auto no-scrollbar">
-        <FormatButton icon={<Heading1 size={16} />} onClick={() => insertMarkdown('# ', '')} label="H1" />
-        <FormatButton icon={<Heading2 size={16} />} onClick={() => insertMarkdown('## ', '')} label="H2" />
+        <FormatButton 
+          icon={<Heading1 size={16} />} 
+          onClick={() => {
+            if (!textareaRef.current) return;
+            const start = textareaRef.current.selectionStart;
+            const text = textareaRef.current.value;
+            const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+            const currentLine = text.substring(lineStart, text.indexOf('\n', start) === -1 ? text.length : text.indexOf('\n', start));
+            
+            // Remove existing heading markers if present
+            const lineWithoutHeading = currentLine.replace(/^#+\s*/, '');
+            
+            // Insert H1 at start of line
+            const newText = text.substring(0, lineStart) + '# ' + lineWithoutHeading + text.substring(lineStart + currentLine.length);
+            setContent(newText);
+            if (activeNoteId) {
+              updateNote(activeNoteId, { content: newText });
+            }
+            setTimeout(() => {
+              if (textareaRef.current) {
+                textareaRef.current.focus();
+                const newPos = lineStart + 2 + lineWithoutHeading.length;
+                textareaRef.current.setSelectionRange(newPos, newPos);
+              }
+            }, 0);
+          }} 
+          label="H1" 
+        />
+        <FormatButton 
+          icon={<Heading2 size={16} />} 
+          onClick={() => {
+            if (!textareaRef.current) return;
+            const start = textareaRef.current.selectionStart;
+            const text = textareaRef.current.value;
+            const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+            const currentLine = text.substring(lineStart, text.indexOf('\n', start) === -1 ? text.length : text.indexOf('\n', start));
+            
+            // Remove existing heading markers if present
+            const lineWithoutHeading = currentLine.replace(/^#+\s*/, '');
+            
+            // Insert H2 at start of line
+            const newText = text.substring(0, lineStart) + '## ' + lineWithoutHeading + text.substring(lineStart + currentLine.length);
+            setContent(newText);
+            if (activeNoteId) {
+              updateNote(activeNoteId, { content: newText });
+            }
+            setTimeout(() => {
+              if (textareaRef.current) {
+                textareaRef.current.focus();
+                const newPos = lineStart + 3 + lineWithoutHeading.length;
+                textareaRef.current.setSelectionRange(newPos, newPos);
+              }
+            }, 0);
+          }} 
+          label="H2" 
+        />
         <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-2" />
         <FormatButton icon={<Bold size={16} />} onClick={() => insertMarkdown('**', '**')} label="Bold" />
         <FormatButton icon={<Italic size={16} />} onClick={() => insertMarkdown('*', '*')} label="Italic" />
         <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-2" />
-        <FormatButton icon={<List size={16} />} onClick={() => insertMarkdown('- ', '')} label="List" />
-        <FormatButton icon={<CheckSquare size={16} />} onClick={() => insertMarkdown('- [ ] ', '')} label="Task" />
+        <FormatButton 
+          icon={<List size={16} />} 
+          onClick={() => {
+            if (!textareaRef.current) return;
+            const start = textareaRef.current.selectionStart;
+            const text = textareaRef.current.value;
+            const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+            const lineEnd = text.indexOf('\n', start);
+            const currentLine = text.substring(lineStart, lineEnd === -1 ? text.length : lineEnd);
+            
+            // If current line already starts with list marker, don't add another
+            if (currentLine.trim().startsWith('- ')) {
+              return;
+            }
+            
+            // Insert at the start of current line or at cursor if at start of document
+            const insertPos = lineStart;
+            const newText = text.substring(0, insertPos) + '- ' + text.substring(insertPos);
+            setContent(newText);
+            if (activeNoteId) {
+              updateNote(activeNoteId, { content: newText });
+            }
+            setTimeout(() => {
+              if (textareaRef.current) {
+                textareaRef.current.focus();
+                textareaRef.current.setSelectionRange(insertPos + 2, insertPos + 2);
+              }
+            }, 0);
+          }} 
+          label="List" 
+        />
+        <FormatButton 
+          icon={<CheckSquare size={16} />} 
+          onClick={() => {
+            if (!textareaRef.current) return;
+            const start = textareaRef.current.selectionStart;
+            const text = textareaRef.current.value;
+            const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+            const lineEnd = text.indexOf('\n', start);
+            const currentLine = text.substring(lineStart, lineEnd === -1 ? text.length : lineEnd);
+            
+            // If current line already starts with task marker, don't add another
+            if (currentLine.trim().startsWith('- [ ]')) {
+              return;
+            }
+            
+            // Insert at the start of current line or at cursor if at start of document
+            const insertPos = lineStart;
+            const newText = text.substring(0, insertPos) + '- [ ] ' + text.substring(insertPos);
+            setContent(newText);
+            if (activeNoteId) {
+              updateNote(activeNoteId, { content: newText });
+            }
+            setTimeout(() => {
+              if (textareaRef.current) {
+                textareaRef.current.focus();
+                textareaRef.current.setSelectionRange(insertPos + 6, insertPos + 6);
+              }
+            }, 0);
+          }} 
+          label="Task" 
+        />
       </div>
 
       {/* Editor Area */}

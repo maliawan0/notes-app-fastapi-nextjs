@@ -1,142 +1,170 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Note, Tag } from '../types';
-import { v4 as uuidv4 } from 'uuid';
+import { notesApi, Note as ApiNote } from '../lib/api';
 
 interface NotesContextType {
   notes: Note[];
   tags: Tag[];
   activeNoteId: string | null;
   setActiveNoteId: (id: string | null) => void;
-  createNote: () => string;
+  createNote: () => Promise<string>;
   updateNote: (id: string, updates: Partial<Note>) => void;
-  deleteNote: (id: string) => void; // Permanent delete
-  archiveNote: (id: string) => void;
-  restoreNote: (id: string) => void;
+  deleteNote: (id: string) => Promise<void>; // Permanent delete
+  archiveNote: (id: string) => Promise<void>;
+  restoreNote: (id: string) => Promise<void>;
   getNote: (id: string) => Note | undefined;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   selectedTag: string | null;
   setSelectedTag: (tag: string | null) => void;
   isSaving: boolean;
+  isLoading: boolean;
+  refreshNotes: () => Promise<void>;
 }
 
 const NotesContext = createContext<NotesContextType | undefined>(undefined);
 
-// Helper to extract tags from content
-const extractTags = (content: string): string[] => {
-  const tagRegex = /#[\w-]+/g;
-  const matches = content.match(tagRegex);
-  if (!matches) return [];
-  return Array.from(new Set(matches.map(tag => tag.substring(1).toLowerCase()))); // Remove # and lowercase
-};
-
-// Helper to extract title from content (first line)
-const extractTitle = (content: string): string => {
-  const firstLine = content.split('\n')[0].replace(/^#+\s*/, '');
-  return firstLine.substring(0, 50) || 'Untitled Note';
-};
+// Helper to convert API note to frontend note format
+const apiNoteToNote = (apiNote: ApiNote): Note => ({
+  id: apiNote.id,
+  title: apiNote.title,
+  content: apiNote.content,
+  tags: apiNote.tags,
+  isArchived: apiNote.isArchived,
+  createdAt: apiNote.createdAt,
+  updatedAt: apiNote.updatedAt,
+});
 
 export function NotesProvider({ children }: { children: React.ReactNode }) {
   const [notes, setNotes] = useState<Note[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Debounce timer for auto-save
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load notes from local storage
-  useEffect(() => {
-    const storedNotes = localStorage.getItem('quicknote_notes');
-    if (storedNotes) {
-      try {
-        setNotes(JSON.parse(storedNotes));
-      } catch (e) {
-        console.error("Failed to parse notes", e);
+  // Fetch notes and tags from API
+  const refreshNotes = useCallback(async (isArchived: boolean = false, customSearch?: string, customTag?: string) => {
+    try {
+      setIsLoading(true);
+      
+      // Use provided values or current state values for search and tag
+      const currentSearch = customSearch !== undefined ? customSearch : (searchQuery || undefined);
+      const currentTag = customTag !== undefined ? customTag : (selectedTag || undefined);
+      
+      // Fetch notes with search and tag filters
+      const apiNotes = await notesApi.getNotes(
+        currentSearch,
+        currentTag,
+        isArchived
+      );
+      
+      setNotes(apiNotes.map(apiNoteToNote));
+      
+      // Fetch tags (only for non-archived view)
+      if (!isArchived) {
+        const apiTags = await notesApi.getTags();
+        setTags(apiTags);
+      } else {
+        setTags([]);
       }
+    } catch (error) {
+      console.error("Failed to fetch notes:", error);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoaded(true);
-  }, []);
+  }, [searchQuery, selectedTag]);
 
-  // Save notes to local storage whenever they change
+  // Initial load and refresh when filters change
   useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('quicknote_notes', JSON.stringify(notes));
-    }
-  }, [notes, isLoaded]);
+    refreshNotes();
+  }, [refreshNotes]);
 
-  // Derived tags
-  const tags = React.useMemo(() => {
-    const tagMap = new Map<string, number>();
-    notes.forEach(note => {
-      if (!note.isArchived) {
-        note.tags.forEach(tag => {
-          tagMap.set(tag, (tagMap.get(tag) || 0) + 1);
-        });
-      }
-    });
-    
-    return Array.from(tagMap.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [notes]);
-
-  const createNote = useCallback(() => {
-    const newNote: Note = {
-      id: uuidv4(),
-      title: '',
-      content: '',
-      tags: [],
-      isArchived: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    
-    setNotes(prev => [newNote, ...prev]);
-    setActiveNoteId(newNote.id);
-    return newNote.id;
-  }, []);
-
+  // Auto-save debounced updates
   const updateNote = useCallback((id: string, updates: Partial<Note>) => {
-    setIsSaving(true);
-    
+    // Optimistically update UI
     setNotes(prev => prev.map(note => {
       if (note.id === id) {
-        const updatedNote = { ...note, ...updates, updatedAt: new Date().toISOString() };
-        
-        // If content changed, re-process title and tags
-        if (updates.content !== undefined) {
-          updatedNote.title = extractTitle(updates.content);
-          updatedNote.tags = extractTags(updates.content);
-        }
-        
-        return updatedNote;
+        return { ...note, ...updates, updatedAt: new Date().toISOString() };
       }
       return note;
     }));
 
-    // Simulate network delay for "saving" indicator
-    setTimeout(() => setIsSaving(false), 500);
+    // Debounce API call for content updates
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    if (updates.content !== undefined) {
+      setIsSaving(true);
+      saveTimeoutRef.current = setTimeout(async () => {
+        try {
+          await notesApi.updateNote(id, { content: updates.content! });
+          // Refresh to get updated tags and title from backend
+          await refreshNotes();
+        } catch (error) {
+          console.error("Failed to save note:", error);
+        } finally {
+          setIsSaving(false);
+        }
+      }, 1000); // 1 second debounce
+    }
+  }, [refreshNotes]);
+
+  const createNote = useCallback(async () => {
+    try {
+      const newNote = await notesApi.createNote();
+      const note = apiNoteToNote(newNote);
+      setNotes(prev => [note, ...prev]);
+      setActiveNoteId(note.id);
+      return note.id;
+    } catch (error) {
+      console.error("Failed to create note:", error);
+      throw error;
+    }
   }, []);
 
-  const archiveNote = useCallback((id: string) => {
-    updateNote(id, { isArchived: true });
-    if (activeNoteId === id) {
-      setActiveNoteId(null);
+  const archiveNote = useCallback(async (id: string) => {
+    try {
+      await notesApi.archiveNote(id);
+      if (activeNoteId === id) {
+        setActiveNoteId(null);
+      }
+      await refreshNotes();
+    } catch (error) {
+      console.error("Failed to archive note:", error);
+      throw error;
     }
-  }, [updateNote, activeNoteId]);
+  }, [activeNoteId, refreshNotes]);
 
-  const restoreNote = useCallback((id: string) => {
-    updateNote(id, { isArchived: false });
-  }, [updateNote]);
-
-  const deleteNote = useCallback((id: string) => {
-    setNotes(prev => prev.filter(n => n.id !== id));
-    if (activeNoteId === id) {
-      setActiveNoteId(null);
+  const restoreNote = useCallback(async (id: string) => {
+    try {
+      await notesApi.restoreNote(id);
+      await refreshNotes();
+    } catch (error) {
+      console.error("Failed to restore note:", error);
+      throw error;
     }
-  }, [activeNoteId]);
+  }, [refreshNotes]);
+
+  const deleteNote = useCallback(async (id: string) => {
+    try {
+      await notesApi.deleteNote(id);
+      if (activeNoteId === id) {
+        setActiveNoteId(null);
+      }
+      await refreshNotes();
+    } catch (error) {
+      console.error("Failed to delete note:", error);
+      throw error;
+    }
+  }, [activeNoteId, refreshNotes]);
 
   const getNote = useCallback((id: string) => {
     return notes.find(n => n.id === id);
@@ -158,7 +186,9 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
       setSearchQuery,
       selectedTag,
       setSelectedTag,
-      isSaving
+      isSaving,
+      isLoading,
+      refreshNotes
     }}>
       {children}
     </NotesContext.Provider>

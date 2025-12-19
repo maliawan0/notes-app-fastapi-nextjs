@@ -6,10 +6,10 @@ import { Archive, RefreshCw, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function ArchiveView() {
-  const { notes, restoreNote, deleteNote } = useNotes();
+  const { notes, restoreNote, deleteNote, refreshNotes } = useNotes();
   
-  const archivedNotes = notes.filter(note => note.isArchived)
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  // Notes are already filtered by the API, but we can use them directly
+  const archivedNotes = notes;
 
   if (archivedNotes.length === 0) {
     return (
@@ -49,16 +49,28 @@ export default function ArchiveView() {
               
               <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={() => restoreNote(note.id)}
+                  onClick={async () => {
+                    try {
+                      await restoreNote(note.id);
+                      await refreshNotes(true);
+                    } catch (error) {
+                      console.error("Failed to restore note:", error);
+                    }
+                  }}
                   className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded"
                   title="Restore"
                 >
                   <RefreshCw size={16} />
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (confirm('Are you sure you want to permanently delete this note?')) {
-                      deleteNote(note.id);
+                      try {
+                        await deleteNote(note.id);
+                        await refreshNotes(true);
+                      } catch (error) {
+                        console.error("Failed to delete note:", error);
+                      }
                     }
                   }}
                   className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
